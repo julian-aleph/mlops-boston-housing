@@ -449,8 +449,8 @@ Pasos:
 ```text
 make setup
 make lint
-make test
 make pipeline
+make test
 make api-check
 make docker-build
 ```

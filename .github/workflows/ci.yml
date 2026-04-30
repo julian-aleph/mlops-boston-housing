@@ -31,11 +31,11 @@ jobs:
       - name: Lint
         run: make lint
 
-      - name: Tests
-        run: make test
-
       - name: Run training pipeline
         run: make pipeline
+
+      - name: Tests
+        run: make test
 
       - name: Validate API import
         run: make api-check
