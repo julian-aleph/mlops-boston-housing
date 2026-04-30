@@ -1,0 +1,8 @@
+kagglehub==0.3.4
+joblib==1.4.2
+pandas==2.2.2
+pyarrow==18.0.0
+pytest==8.3.2
+PyYAML==6.0.2
+ruff==0.5.5
+scikit-learn==1.5.1

@@ -1,0 +1,69 @@
+data:
+  kaggle_dataset: "altavish/boston-housing-dataset"
+  raw_dir: "data/raw"
+  raw_filename: "boston_housing.csv"
+  metadata_filename: "dataset_metadata.json"
+  profile_dir: "reports/metrics"
+  profile_filename: "data_profile.json"
+  target_column: "MEDV"
+  min_rows: 500
+  required_columns:
+    - CRIM
+    - ZN
+    - INDUS
+    - CHAS
+    - NOX
+    - RM
+    - AGE
+    - DIS
+    - RAD
+    - TAX
+    - PTRATIO
+    - B
+    - LSTAT
+    - MEDV
+
+features:
+  processed_dir: "data/processed"
+  processed_filename: "boston_housing_processed.parquet"
+  schema_filename: "feature_schema.json"
+  registry_filename: "feature_registry.json"
+  feature_set_name: "boston_housing_features"
+  version: "1.0.0"
+
+preprocessing:
+  lower_quantile: 0.01
+  upper_quantile: 0.99
+
+training:
+  test_size: 0.2
+  random_state: 42
+  cv_folds: 5
+  search_n_iter: 20
+  n_jobs: -1
+  scoring: "neg_root_mean_squared_error"
+
+models:
+  staging_dir: "models/staging"
+  production_dir: "models/production"
+  model_filename: "model.joblib"
+  metadata_filename: "metadata.json"
+  metrics_filename: "metrics.json"
+
+evaluation:
+  metrics_dir: "reports/metrics"
+  staging_metrics_filename: "staging_metrics.json"
+  model_comparison_filename: "model_comparison.csv"
+  test_indices_filename: "test_indices.json"
+
+feature_importance:
+  output_dir: "reports/feature_importance"
+  filename: "feature_importance.csv"
+  selected_features_filename: "selected_features.json"
+  n_repeats: 20
+  random_state: 42
+  threshold: 0.0
+
+promotion:
+  min_rmse_improvement: 0.02
+  report_filename: "promotion_report.json"
