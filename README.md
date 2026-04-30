@@ -21,7 +21,7 @@ persistir un modelo candidato para Boston Housing.
 - Despliegue local del API con Docker y Docker Compose.
 - Monitoreo basico del servicio con Prometheus y Grafana.
 
-GitHub Actions se agregara en fases posteriores.
+Validacion automatica con GitHub Actions.
 
 ## Comandos
 
@@ -276,3 +276,25 @@ Metricas expuestas:
 
 El dashboard provisionado para Grafana incluye request rate, latencia (p50/p95),
 total de errores, estado del modelo y distribucion de la prediccion.
+
+## CI/CD
+
+GitHub Actions ejecuta `.github/workflows/ci.yml` en cada push y pull request
+contra `main`. El workflow valida calidad de codigo, tests, ejecucion del
+pipeline de entrenamiento, importacion del API y build de la imagen Docker.
+
+El workflow no despliega a cloud porque el challenge es local-first y
+cloud-agnostic. El build de la imagen Docker actua como verificacion de
+readiness para deploy.
+
+Pasos del workflow:
+
+- `make setup` — instalar dependencias.
+- `make lint` — Ruff y compileall.
+- `make test` — suite de pytest.
+- `make pipeline` — data, features, train, evaluate, promote.
+- `make api-check` — validar que el API importa con el modelo de produccion.
+- `make docker-build` — construir la imagen serving.
+
+Docker Compose, Prometheus y Grafana no se ejecutan en CI; el build de la
+imagen es suficiente como senal de readiness.
