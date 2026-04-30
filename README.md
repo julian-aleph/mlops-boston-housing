@@ -430,7 +430,7 @@ Limitaciones intencionales para mantener el alcance del challenge:
 - Sin estrategia canary ni blue/green.
 
 Estas decisiones priorizan claridad y reproducibilidad en un entregable de
-6 a 8 horas, sin acoplar el código a un proveedor específico.
+6 a 8 horas, sin acoplar el código a un proveedor de nube específico.
 
 ## 18. Mejoras futuras
 
@@ -452,11 +452,9 @@ Estas decisiones priorizan claridad y reproducibilidad en un entregable de
 
 ## 19. Uso de herramientas de IA
 
-Se usaron herramientas de asistencia con IA como apoyo de productividad para
-planeación, generación de boilerplate, revisión de documentación e ideas de
-pruebas. Las decisiones técnicas, ejecución, depuración, validación y
-revisión final fueron realizadas manualmente por el autor. El proyecto es
-reproducible mediante los comandos documentados en Makefile, DVC y Docker.
+Se utilizaron herramientas de asistencia con IA como apoyo para acelerar tareas de planeación, creación de estructuras iniciales, documentación e ideas de pruebas. El diseño técnico, la integración del sistema, la depuración, la ejecución de validaciones y la revisión final fueron realizados por el autor.
+
+La reproducibilidad del proyecto se verifica mediante Makefile, DVC, Docker y GitHub Actions.
 
 ## 20. Validación rápida final
 
