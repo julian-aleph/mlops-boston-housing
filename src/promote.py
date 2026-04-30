@@ -57,7 +57,7 @@ def should_promote(
     return False, "Staging RMSE does not meet required improvement."
 
 
-def copy_model_artifacts(config: dict[str, Any]) -> None:
+def copy_model_artifacts(config: dict[str, Any]) -> bool:
     model_config = config["models"]
     evaluation_config = config["evaluation"]
     staging_dir = Path(model_config["staging_dir"])
@@ -69,14 +69,28 @@ def copy_model_artifacts(config: dict[str, Any]) -> None:
         production_dir / model_config["model_filename"],
     )
     shutil.copy2(
-        staging_dir / model_config["metadata_filename"],
-        production_dir / model_config["metadata_filename"],
-    )
-    shutil.copy2(
         Path(evaluation_config["metrics_dir"])
         / evaluation_config["staging_metrics_filename"],
         production_dir / model_config["metrics_filename"],
     )
+    metadata = read_json(staging_dir / model_config["metadata_filename"])
+    metadata_stage_corrected = metadata.get("model_stage") != "production"
+    metadata["model_stage"] = "production"
+    write_json(metadata, production_dir / model_config["metadata_filename"])
+    return metadata_stage_corrected
+
+
+def correct_production_metadata(metadata_path: Path) -> bool:
+    if not metadata_path.exists():
+        return False
+
+    metadata = read_json(metadata_path)
+    if metadata.get("model_stage") == "production":
+        return False
+
+    metadata["model_stage"] = "production"
+    write_json(metadata, metadata_path)
+    return True
 
 
 def write_json(payload: dict[str, Any], output_path: Path) -> None:
@@ -103,6 +117,9 @@ def run(config_path: Path) -> Path:
     production_metrics_path = (
         Path(model_config["production_dir"]) / model_config["metrics_filename"]
     )
+    production_metadata_path = (
+        Path(model_config["production_dir"]) / model_config["metadata_filename"]
+    )
     report_path = (
         Path(evaluation_config["metrics_dir"]) / promotion_config["report_filename"]
     )
@@ -122,14 +139,18 @@ def run(config_path: Path) -> Path:
     )
 
     if promoted:
-        copy_model_artifacts(config)
+        metadata_stage_corrected = copy_model_artifacts(config)
         logger.info("Model promoted to production")
     else:
+        metadata_stage_corrected = correct_production_metadata(production_metadata_path)
+        if metadata_stage_corrected:
+            logger.info("Production metadata stage corrected")
         logger.info("Model promotion skipped")
 
     report = {
         "promoted": promoted,
         "reason": reason,
+        "metadata_stage_corrected": metadata_stage_corrected,
         "staging_rmse": staging_rmse,
         "production_rmse": production_rmse,
         "min_rmse_improvement": min_improvement,
