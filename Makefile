@@ -66,3 +66,15 @@ format:
 	$(PYTHON) -m ruff check . --fix
 
 ci: lint test pipeline
+
+docker-build:
+	docker build -f docker/Dockerfile -t boston-housing-api:local .
+
+docker-up:
+	docker compose up --build
+
+docker-down:
+	docker compose down
+
+docker-logs:
+	docker compose logs -f api

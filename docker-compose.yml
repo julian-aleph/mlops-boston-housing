@@ -1,0 +1,17 @@
+services:
+  api:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+    image: boston-housing-api:local
+    container_name: boston-housing-api
+    ports:
+      - "8000:8000"
+    environment:
+      CONFIG_PATH: /app/configs/params.yaml
+      MODEL_PATH: /app/models/production/model.joblib
+      MODEL_METADATA_PATH: /app/models/production/metadata.json
+    volumes:
+      - ./models/production:/app/models/production:ro
+      - ./configs:/app/configs:ro
+    restart: unless-stopped

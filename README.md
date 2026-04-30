@@ -18,8 +18,9 @@ persistir un modelo candidato para Boston Housing.
 - API local con FastAPI para servir el modelo en produccion.
 - Tracking de experimentos con MLflow durante entrenamiento.
 - Versionado de artefactos y DAG reproducible con DVC.
+- Despliegue local del API con Docker y Docker Compose.
 
-Docker, monitoreo y GitHub Actions se agregaran en fases posteriores.
+Monitoreo y GitHub Actions se agregaran en fases posteriores.
 
 ## Comandos
 
@@ -145,6 +146,72 @@ http://localhost:8000/docs
 ```
 
 Example prediction request:
+
+```bash
+curl -X POST "http://localhost:8000/predict" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "crim": 0.00632,
+    "zn": 18.0,
+    "indus": 2.31,
+    "chas": 0.0,
+    "nox": 0.538,
+    "rm": 6.575,
+    "age": 65.2,
+    "dis": 4.09,
+    "rad": 1.0,
+    "tax": 296.0,
+    "ptratio": 15.3,
+    "b": 396.9,
+    "lstat": 4.98
+  }'
+```
+
+## Local deployment with Docker
+
+La imagen Docker es solo para serving. El entrenamiento se ejecuta fuera de la
+imagen mediante el Makefile o el pipeline de DVC. El contenedor carga el
+artefacto de produccion desde `models/production`, lo que mantiene separadas
+las responsabilidades de entrenamiento y serving.
+
+Asegurar que existe un modelo de produccion antes de construir la imagen:
+
+```bash
+make pipeline
+```
+
+Construir la imagen del API:
+
+```bash
+make docker-build
+```
+
+Levantar el API con Docker Compose:
+
+```bash
+make docker-up
+```
+
+Ver logs del contenedor:
+
+```bash
+make docker-logs
+```
+
+Detener servicios:
+
+```bash
+make docker-down
+```
+
+Endpoints disponibles:
+
+```text
+http://localhost:8000/docs
+http://localhost:8000/health
+```
+
+Ejemplo de prediccion contra el contenedor:
 
 ```bash
 curl -X POST "http://localhost:8000/predict" \
