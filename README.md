@@ -47,24 +47,30 @@ Responsabilidades por componente:
 
 ```text
 boston-housing-mlops/
-├── app/                  # FastAPI: main, schemas, model loader, monitoring
-├── src/                  # Pipeline: data, features, preprocessing, train, evaluate, promote
-├── tests/                # Pytest: contratos de API, training y preprocessing
-├── configs/              # params.yaml: configuración única de pipeline y serving
-├── data/                 # raw/ y processed/ (no comiteados)
-├── models/               # staging/ y production/ (no comiteados)
-├── reports/              # métricas, perfiles, importancia de features
-├── monitoring/           # prometheus.yml + provisioning de Grafana
-├── docker/               # Dockerfile de la imagen serving
-├── .github/workflows/    # ci.yml: workflow de CI
-├── docs/                 # outline de presentación, checklist de validación
-├── Makefile
-├── docker-compose.yml
-├── dvc.yaml
-├── requirements.txt
-├── pyproject.toml
-└── README.md
+├── app/                    # API FastAPI: endpoints, schemas, model loader y métricas
+├── src/                    # Pipeline ML: data, features, preprocessing, train, evaluate, promote
+├── tests/                  # Pruebas con pytest para API, preprocessing y contratos de training
+├── configs/                # params.yaml: configuración central del pipeline y serving
+├── data/                   # Artefactos raw/processed generados y gestionados con DVC
+├── models/                 # Artefactos staging/production generados y gestionados con DVC
+├── reports/                # Métricas, perfiles e importancia de features
+├── monitoring/             # Configuración de Prometheus y provisioning de Grafana
+├── docker/                 # Dockerfile para la imagen de serving
+├── docs/                   # Outline de presentación y checklist de validación
+├── .github/workflows/      # Workflow de CI con GitHub Actions
+├── .dvc/                   # Configuración interna de DVC
+├── Makefile                # Interfaz operativa principal del proyecto
+├── docker-compose.yml      # Stack local: API, Prometheus y Grafana
+├── dvc.yaml                # DAG reproducible del pipeline
+├── dvc.lock                # Estado versionado del pipeline DVC
+├── requirements.txt        # Dependencias Python
+├── pyproject.toml          # Configuración de Ruff y pytest
+├── .gitignore              # Exclusiones de Git para artefactos generados
+├── .dockerignore           # Exclusiones para build de Docker
+└── README.md               # Documentación principal
 ```
+
+Los directorios `data/`, `models/` y `reports/` contienen artefactos generados por el pipeline. Estos archivos no se versionan directamente en Git; se gestionan mediante DVC para mantener el repositorio liviano y reproducible.
 
 Carpetas clave:
 
@@ -124,20 +130,24 @@ Esto deja disponibles la API, Prometheus y Grafana en local. La sección
 
 Tabla resumen de los targets más usados del Makefile:
 
-| Comando             | Propósito                                                  |
-| ------------------- | ---------------------------------------------------------- |
-| `make setup`        | Instala dependencias del proyecto.                         |
-| `make pipeline`     | Ejecuta el pipeline end-to-end y promueve el modelo.       |
-| `make retrain`      | Reentrena reejecutando el pipeline completo.               |
-| `make serve`        | Levanta la API FastAPI local.                              |
-| `make api-check`    | Valida que la API carga los artefactos productivos.        |
-| `make mlflow-ui`    | Abre la UI de MLflow.                                      |
-| `make docker-build` | Construye la imagen de serving.                            |
-| `make docker-up`    | Levanta el stack `api + prometheus + grafana` local.       |
-| `make docker-down`  | Detiene el stack local.                                    |
-| `make monitor`      | Imprime URLs y credenciales del stack de observabilidad.   |
-| `make lint`         | Ejecuta linting y validación de imports.                   |
-| `make test`         | Ejecuta la suite de pruebas.                               |
+| Comando | Propósito |
+|---|---|
+| `make setup` | Instala dependencias del proyecto. |
+| `make pipeline` | Ejecuta el pipeline end-to-end y promueve el modelo. |
+| `make retrain` | Reentrena reejecutando el pipeline completo. |
+| `make serve` | Levanta la API FastAPI local. |
+| `make api-check` | Valida que la API carga los artefactos productivos. |
+| `make mlflow-ui` | Abre la UI de MLflow. |
+| `make dvc-repro` | Reproduce el DAG con DVC. |
+| `make dvc-status` | Muestra el estado del pipeline DVC. |
+| `make dvc-metrics` | Muestra las métricas registradas por DVC. |
+| `make docker-build` | Construye la imagen de serving. |
+| `make docker-up` | Levanta el stack `api + prometheus + grafana`. |
+| `make docker-down` | Detiene el stack local. |
+| `make monitor` | Imprime URLs del stack de observabilidad. |
+| `make lint` | Ejecuta linting y validación de imports. |
+| `make format` | Aplica formateo automático con Ruff. |
+| `make test` | Ejecuta la suite de pruebas. |
 
 Las secciones siguientes describen cada bloque en detalle.
 
@@ -430,10 +440,9 @@ make lint
 make test
 ```
 
-- **Ruff:** linting y formateo.
-- **compileall:** validación de imports y sintaxis sobre `src/` y `tests/`.
-- **pytest:** contratos de preprocessing, training y API, incluyendo el
-  endpoint `/metrics`.
+- **Ruff:** linting con `make lint` y formateo opcional con `make format`.
+- **compileall:** validación de imports y sintaxis sobre `src/`, `app/` y `tests/`.
+- **pytest:** pruebas automatizadas para preprocessing, training, API y monitoreo.
 
 ## 17. CI/CD con GitHub Actions
 
