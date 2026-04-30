@@ -1,3 +1,5 @@
+"""Entrena modelos candidatos y persiste el mejor estimador en staging."""
+
 import argparse
 import json
 import logging
@@ -104,10 +106,12 @@ def build_candidates(
     random_state: int,
     n_jobs: int,
 ) -> dict[str, tuple[Pipeline, dict[str, list[Any]]]]:
+    """Construye los pipelines candidatos y sus espacios de búsqueda."""
     clipper = QuantileClipper(
         lower_quantile=float(preprocessing_config["lower_quantile"]),
         upper_quantile=float(preprocessing_config["upper_quantile"]),
     )
+    # Modelos lineales requieren escalado; los basados en árboles no.
     linear_steps = [
         ("imputer", SimpleImputer(strategy="median")),
         ("clipper", clipper),
@@ -290,6 +294,7 @@ def log_training_artifacts(
 
 
 def run(config_path: Path) -> Path:
+    """Entrena candidatos, selecciona el mejor por CV-RMSE y lo deja en staging."""
     config = load_config(config_path)
     data, schema = load_feature_artifacts(config["features"])
     features = list(schema["features"])

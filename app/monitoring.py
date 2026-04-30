@@ -1,3 +1,10 @@
+"""Instrumentación Prometheus para la API de serving.
+
+Se monitorea la distribución de predicciones porque en runtime no hay
+ground truth; cambios marcados en esta distribución son la señal
+operativa más cercana a drift de salida disponible sin etiquetas.
+"""
+
 from prometheus_client import (
     CONTENT_TYPE_LATEST,
     Counter,
@@ -41,4 +48,5 @@ MODEL_INFO = Gauge(
 
 
 def render_metrics() -> tuple[bytes, str]:
+    """Serializa el registry Prometheus para el endpoint /metrics."""
     return generate_latest(), CONTENT_TYPE_LATEST

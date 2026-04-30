@@ -1,3 +1,5 @@
+"""Carga el modelo productivo y su metadata para serving en FastAPI."""
+
 import json
 import logging
 import os
@@ -85,12 +87,15 @@ def validate_metadata(metadata: dict[str, Any]) -> tuple[list[str], str, str, st
 
 
 def ensure_src_import_path() -> None:
+    # joblib reconstruye QuantileClipper desde src/preprocessing.py; el
+    # path debe estar disponible antes del joblib.load.
     src_path = Path(__file__).resolve().parents[1] / "src"
     if str(src_path) not in sys.path:
         sys.path.insert(0, str(src_path))
 
 
 def load_model_artifacts() -> ModelArtifacts:
+    """Carga el modelo productivo y su metadata desde models/production/."""
     model_path, metadata_path = resolve_artifact_paths()
     if not model_path.exists():
         raise FileNotFoundError(f"Required model file not found: {model_path}.")

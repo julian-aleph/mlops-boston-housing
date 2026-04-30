@@ -1,3 +1,9 @@
+"""API FastAPI de inferencia: expone /predict, /health y /metrics.
+
+La API sirve únicamente predicciones y no depende de MLflow ni DVC en
+runtime: el modelo productivo se persiste como joblib autocontenido.
+"""
+
 import logging
 import time
 
@@ -52,11 +58,14 @@ def metrics() -> Response:
 
 @app.post("/predict", response_model=PredictionResponse)
 def predict(request: PredictionRequest) -> PredictionResponse:
+    """Genera una predicción individual usando el modelo productivo cargado."""
     PREDICTION_REQUESTS_TOTAL.inc()
     start = time.perf_counter()
 
     try:
         payload = request.model_dump()
+        # El orden de columnas se toma de metadata["features"] para que el
+        # DataFrame coincida con el orden visto durante training.
         dataframe = pd.DataFrame(
             [{feature: payload[feature] for feature in artifacts.features}]
         )

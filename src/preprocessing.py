@@ -1,3 +1,9 @@
+"""Transformadores de preprocesamiento embebidos en el sklearn Pipeline.
+
+Mantener el preprocesamiento dentro del Pipeline garantiza que los mismos
+pasos aprendidos en training se apliquen en serving sin lógica duplicada.
+"""
+
 from typing import Self
 
 import numpy as np
@@ -6,7 +12,7 @@ from sklearn.base import BaseEstimator, TransformerMixin
 
 
 class QuantileClipper(BaseEstimator, TransformerMixin):
-    """Recorta valores numericos usando cuantiles aprendidos."""
+    """Aplica clipping por cuantiles aprendidos durante fit."""
 
     def __init__(
         self,

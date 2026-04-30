@@ -1,3 +1,5 @@
+"""Promueve el modelo staging a producción si supera el umbral de mejora."""
+
 import argparse
 import json
 import logging
@@ -47,6 +49,7 @@ def should_promote(
     production_rmse: float | None,
     min_rmse_improvement: float,
 ) -> tuple[bool, str]:
+    """Decide si staging supera a producción por al menos el umbral configurado."""
     if production_rmse is None:
         return True, "No production model exists."
 
@@ -102,6 +105,7 @@ def write_json(payload: dict[str, Any], output_path: Path) -> None:
 
 
 def run(config_path: Path) -> Path:
+    """Aplica la regla de promoción y copia los artefactos a producción."""
     config = load_config(config_path)
     model_config = config["models"]
     evaluation_config = config["evaluation"]

@@ -1,3 +1,5 @@
+"""Evalúa el modelo staging y calcula importancia por permutación."""
+
 import argparse
 import json
 import logging
@@ -96,6 +98,7 @@ def write_json(payload: dict[str, Any], output_path: Path) -> None:
 
 
 def run(config_path: Path) -> Path:
+    """Evalúa el modelo staging sobre el split de test y registra importancias."""
     config = load_config(config_path)
     model_path = (
         Path(config["models"]["staging_dir"]) / config["models"]["model_filename"]

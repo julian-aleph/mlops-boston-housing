@@ -1,3 +1,5 @@
+"""Genera el dataset procesado, el feature schema y el feature registry."""
+
 import argparse
 import json
 import logging
@@ -81,6 +83,7 @@ def write_json(payload: dict[str, Any], output_path: Path) -> None:
 
 
 def run(config_path: Path) -> Path:
+    """Construye y persiste el dataset de features junto con su schema."""
     config = load_config(config_path)
     data_config = config["data"]
     feature_config = config["features"]

@@ -1,3 +1,5 @@
+"""Descarga el dataset crudo, valida sus columnas y genera el data profile."""
+
 import argparse
 import json
 import logging
@@ -33,12 +35,15 @@ def load_config(config_path: Path) -> dict[str, Any]:
 
 
 def download_dataset(dataset_name: str) -> Path:
+    """Descarga el dataset desde KaggleHub con fallback al cache local."""
     logger.info("Downloading dataset from KaggleHub")
     import kagglehub
 
     try:
         return Path(kagglehub.dataset_download(dataset_name))
     except Exception as error:
+        # Fallback al cache local: permite reproducir el pipeline sin red
+        # cuando KaggleHub falla por rate limiting u offline.
         cache_dir = Path.home() / ".cache" / "kagglehub" / "datasets" / dataset_name
         versions_dir = cache_dir / "versions"
         if not versions_dir.exists():
@@ -146,6 +151,7 @@ def write_json(payload: dict[str, Any], output_path: Path) -> None:
 
 
 def run(config_path: Path) -> Path:
+    """Ejecuta el stage de datos: descarga, validación y profile."""
     params = load_config(config_path)
     raw_dir = Path(params["raw_dir"])
     output_csv = raw_dir / params["raw_filename"]
