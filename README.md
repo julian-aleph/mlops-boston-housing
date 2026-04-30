@@ -17,8 +17,9 @@ persistir un modelo candidato para Boston Housing.
 - Promocion local de staging a produccion.
 - API local con FastAPI para servir el modelo en produccion.
 - Tracking de experimentos con MLflow durante entrenamiento.
+- Versionado de artefactos y DAG reproducible con DVC.
 
-Docker, monitoreo, DVC y GitHub Actions se agregaran en fases posteriores.
+Docker, monitoreo y GitHub Actions se agregaran en fases posteriores.
 
 ## Comandos
 
@@ -34,6 +35,9 @@ make retrain
 make serve
 make api-check
 make mlflow-ui
+make dvc-repro
+make dvc-status
+make dvc-metrics
 make test
 make lint
 ```
@@ -88,6 +92,30 @@ make mlflow-ui
 
 ```text
 http://localhost:5000
+```
+
+## Artifact versioning and pipeline reproducibility with DVC
+
+DVC formaliza el pipeline como un DAG y versiona artefactos generados sin
+commitear outputs pesados directamente en Git. El Makefile sigue siendo la
+interfaz operativa diaria; DVC se usa cuando se necesita reproducibilidad,
+seguimiento de dependencias o versionado de artefactos.
+
+No hay remote cloud configurado para este challenge. Una mejora futura podria
+agregar un remote local, S3, GCS o SSH.
+
+```bash
+make dvc-repro
+make dvc-status
+make dvc-metrics
+```
+
+Equivalente directo:
+
+```bash
+dvc repro
+dvc status
+dvc metrics show
 ```
 
 ## API serving

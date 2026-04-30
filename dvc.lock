@@ -1,0 +1,178 @@
+schema: '2.0'
+stages:
+  data:
+    cmd: python3.11 src/data.py --config configs/params.yaml
+    deps:
+    - path: configs/params.yaml
+      hash: md5
+      md5: 72e977925e550c696c480dbb80641636
+      size: 1838
+    - path: src/data.py
+      hash: md5
+      md5: 104305be568db9f6b4a35aa50e6775c8
+      size: 6280
+    outs:
+    - path: data/raw/boston_housing.csv
+      hash: md5
+      md5: 9d9460d994e88c868ee98ea23e6c4111
+      size: 35008
+    - path: data/raw/dataset_metadata.json
+      hash: md5
+      md5: de5ebfe1ed176f65735e057b22bc4348
+      size: 319
+    - path: reports/metrics/data_profile.json
+      hash: md5
+      md5: b9cdcde9c76753afd856f185d6c903ce
+      size: 4103
+  features:
+    cmd: python3.11 src/features.py --config configs/params.yaml
+    deps:
+    - path: configs/params.yaml
+      hash: md5
+      md5: 72e977925e550c696c480dbb80641636
+      size: 1838
+    - path: data/raw/boston_housing.csv
+      hash: md5
+      md5: 9d9460d994e88c868ee98ea23e6c4111
+      size: 35008
+    - path: src/features.py
+      hash: md5
+      md5: 48a4393dd6b188d3ac0c1f55a4327c70
+      size: 4075
+    - path: src/preprocessing.py
+      hash: md5
+      md5: 82c9cb97a1a2950b91b12f97ae7973fd
+      size: 1823
+    outs:
+    - path: data/processed/boston_housing_processed.parquet
+      hash: md5
+      md5: 4e4054ea08ed1cdae80a10bfa1df375d
+      size: 30506
+    - path: data/processed/feature_registry.json
+      hash: md5
+      md5: 650d8fd344e2717f4207aa546e3b263a
+      size: 445
+    - path: data/processed/feature_schema.json
+      hash: md5
+      md5: 5eb9b7527bfe666941d018eebb59e8ad
+      size: 573
+  train:
+    cmd: python3.11 src/train.py --config configs/params.yaml
+    deps:
+    - path: configs/params.yaml
+      hash: md5
+      md5: 72e977925e550c696c480dbb80641636
+      size: 1838
+    - path: data/processed/boston_housing_processed.parquet
+      hash: md5
+      md5: 4e4054ea08ed1cdae80a10bfa1df375d
+      size: 30506
+    - path: data/processed/feature_schema.json
+      hash: md5
+      md5: 5eb9b7527bfe666941d018eebb59e8ad
+      size: 573
+    - path: src/preprocessing.py
+      hash: md5
+      md5: 82c9cb97a1a2950b91b12f97ae7973fd
+      size: 1823
+    - path: src/train.py
+      hash: md5
+      md5: d2b772f19d7a0508541a0aed1d70bb77
+      size: 13898
+    outs:
+    - path: models/staging/metadata.json
+      hash: md5
+      md5: 8ceba6e8fbf88e722e8bc6cf05f43603
+      size: 681
+    - path: models/staging/model.joblib
+      hash: md5
+      md5: 556efc10839ecdd36f2d8b140cfe1292
+      size: 7177143
+    - path: reports/metrics/model_comparison.csv
+      hash: md5
+      md5: f911640b6572c8b1076c7b06ca385c04
+      size: 743
+    - path: reports/metrics/staging_metrics.json
+      hash: md5
+      md5: 8ceba6e8fbf88e722e8bc6cf05f43603
+      size: 681
+    - path: reports/metrics/test_indices.json
+      hash: md5
+      md5: e00721d2845bf1d1d018843719db8cb2
+      size: 914
+  evaluate:
+    cmd: python3.11 src/evaluate.py --config configs/params.yaml
+    deps:
+    - path: configs/params.yaml
+      hash: md5
+      md5: 72e977925e550c696c480dbb80641636
+      size: 1838
+    - path: data/processed/boston_housing_processed.parquet
+      hash: md5
+      md5: 4e4054ea08ed1cdae80a10bfa1df375d
+      size: 30506
+    - path: data/processed/feature_schema.json
+      hash: md5
+      md5: 5eb9b7527bfe666941d018eebb59e8ad
+      size: 573
+    - path: models/staging/model.joblib
+      hash: md5
+      md5: 556efc10839ecdd36f2d8b140cfe1292
+      size: 7177143
+    - path: reports/metrics/test_indices.json
+      hash: md5
+      md5: e00721d2845bf1d1d018843719db8cb2
+      size: 914
+    - path: src/evaluate.py
+      hash: md5
+      md5: 4b8f493c80e2bdeb987ae91e77e975d0
+      size: 5183
+    outs:
+    - path: reports/feature_importance/feature_importance.csv
+      hash: md5
+      md5: 36350d8898ebd0d75d8f836ee6ec5230
+      size: 650
+    - path: reports/feature_importance/selected_features.json
+      hash: md5
+      md5: 9706b7fe6b9d1661468c72fe2cbf0c9b
+      size: 277
+  promote:
+    cmd: python3.11 src/promote.py --config configs/params.yaml
+    deps:
+    - path: configs/params.yaml
+      hash: md5
+      md5: 72e977925e550c696c480dbb80641636
+      size: 1838
+    - path: models/staging/metadata.json
+      hash: md5
+      md5: 8ceba6e8fbf88e722e8bc6cf05f43603
+      size: 681
+    - path: models/staging/model.joblib
+      hash: md5
+      md5: 556efc10839ecdd36f2d8b140cfe1292
+      size: 7177143
+    - path: reports/metrics/staging_metrics.json
+      hash: md5
+      md5: 8ceba6e8fbf88e722e8bc6cf05f43603
+      size: 681
+    - path: src/promote.py
+      hash: md5
+      md5: bbdf706941b2901e5eebc73f84804bb8
+      size: 5477
+    outs:
+    - path: models/production/metadata.json
+      hash: md5
+      md5: a3d492a50f9607a69b793df9cbb0953c
+      size: 684
+    - path: models/production/metrics.json
+      hash: md5
+      md5: 8ceba6e8fbf88e722e8bc6cf05f43603
+      size: 681
+    - path: models/production/model.joblib
+      hash: md5
+      md5: 556efc10839ecdd36f2d8b140cfe1292
+      size: 7177143
+    - path: reports/metrics/promotion_report.json
+      hash: md5
+      md5: 7691139902b59516f28a30c72e6b2519
+      size: 249

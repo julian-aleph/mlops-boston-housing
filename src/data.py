@@ -36,7 +36,27 @@ def download_dataset(dataset_name: str) -> Path:
     logger.info("Downloading dataset from KaggleHub")
     import kagglehub
 
-    return Path(kagglehub.dataset_download(dataset_name))
+    try:
+        return Path(kagglehub.dataset_download(dataset_name))
+    except Exception as error:
+        cache_dir = Path.home() / ".cache" / "kagglehub" / "datasets" / dataset_name
+        versions_dir = cache_dir / "versions"
+        if not versions_dir.exists():
+            raise
+
+        cached_versions = sorted(
+            path for path in versions_dir.iterdir() if path.is_dir()
+        )
+        if not cached_versions:
+            raise
+
+        cached_dataset = cached_versions[-1]
+        logger.warning(
+            "Using cached KaggleHub dataset at %s after download failed: %s",
+            cached_dataset,
+            error,
+        )
+        return cached_dataset
 
 
 def find_csv_file(dataset_dir: Path) -> Path:

@@ -1,0 +1,65 @@
+stages:
+  data:
+    cmd: python3.11 src/data.py --config configs/params.yaml
+    deps:
+      - src/data.py
+      - configs/params.yaml
+    outs:
+      - data/raw/boston_housing.csv
+      - data/raw/dataset_metadata.json
+      - reports/metrics/data_profile.json
+
+  features:
+    cmd: python3.11 src/features.py --config configs/params.yaml
+    deps:
+      - src/features.py
+      - src/preprocessing.py
+      - configs/params.yaml
+      - data/raw/boston_housing.csv
+    outs:
+      - data/processed/boston_housing_processed.parquet
+      - data/processed/feature_schema.json
+      - data/processed/feature_registry.json
+
+  train:
+    cmd: python3.11 src/train.py --config configs/params.yaml
+    deps:
+      - src/train.py
+      - src/preprocessing.py
+      - configs/params.yaml
+      - data/processed/boston_housing_processed.parquet
+      - data/processed/feature_schema.json
+    outs:
+      - models/staging/model.joblib
+      - models/staging/metadata.json
+      - reports/metrics/model_comparison.csv
+      - reports/metrics/test_indices.json
+    metrics:
+      - reports/metrics/staging_metrics.json
+
+  evaluate:
+    cmd: python3.11 src/evaluate.py --config configs/params.yaml
+    deps:
+      - src/evaluate.py
+      - configs/params.yaml
+      - data/processed/boston_housing_processed.parquet
+      - data/processed/feature_schema.json
+      - models/staging/model.joblib
+      - reports/metrics/test_indices.json
+    outs:
+      - reports/feature_importance/feature_importance.csv
+      - reports/feature_importance/selected_features.json
+
+  promote:
+    cmd: python3.11 src/promote.py --config configs/params.yaml
+    deps:
+      - src/promote.py
+      - configs/params.yaml
+      - models/staging/model.joblib
+      - models/staging/metadata.json
+      - reports/metrics/staging_metrics.json
+    outs:
+      - models/production/model.joblib
+      - models/production/metadata.json
+      - models/production/metrics.json
+      - reports/metrics/promotion_report.json

@@ -1,7 +1,7 @@
 PYTHON ?= python3.11
 PORT ?= 8000
 
-.PHONY: setup data features train evaluate promote pipeline retrain serve kill-port serve-clean api-check mlflow-ui test lint format ci
+.PHONY: setup data features train evaluate promote pipeline retrain serve kill-port serve-clean api-check mlflow-ui dvc-repro dvc-status dvc-metrics test lint format ci
 
 setup:
 	$(PYTHON) -m pip install -r requirements.txt
@@ -44,6 +44,15 @@ api-check:
 
 mlflow-ui:
 	mlflow ui --backend-store-uri sqlite:///mlflow.db --host 0.0.0.0 --port 5000
+
+dvc-repro:
+	dvc repro
+
+dvc-status:
+	dvc status
+
+dvc-metrics:
+	dvc metrics show
 
 test:
 	$(PYTHON) -m pytest tests/ -v
