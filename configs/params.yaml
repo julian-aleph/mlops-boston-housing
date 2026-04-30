@@ -67,3 +67,14 @@ feature_importance:
 promotion:
   min_rmse_improvement: 0.02
   report_filename: "promotion_report.json"
+
+mlflow:
+  enabled: true
+  experiment_name: "boston_housing_regression"
+  tracking_uri: "sqlite:///mlflow.db"
+  artifact_location: "mlruns"
+  log_model_artifact: false
+
+serving:
+  model_path: "models/production/model.joblib"
+  metadata_path: "models/production/metadata.json"

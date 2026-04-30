@@ -1,6 +1,7 @@
 import argparse
 import json
 import logging
+from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
@@ -37,6 +38,19 @@ REQUIRED_METADATA_FIELDS = {
 }
 
 
+@dataclass
+class CandidateResult:
+    model_name: str
+    best_estimator: Pipeline
+    best_params: dict[str, Any]
+    cv_rmse: float
+    test_rmse: float
+    test_mae: float
+    test_r2: float
+    selected_model: bool = False
+    mlflow_run_id: str | None = None
+
+
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Train staging regression model.")
     parser.add_argument(
@@ -55,7 +69,13 @@ def load_config(config_path: Path) -> dict[str, Any]:
     if not isinstance(config, dict):
         raise ValueError("Config file must be a dictionary.")
 
-    for section in ("features", "preprocessing", "training", "models", "evaluation"):
+    for section in (
+        "features",
+        "preprocessing",
+        "training",
+        "models",
+        "evaluation",
+    ):
         if section not in config:
             raise ValueError(f"Config file must include a {section} section.")
 
@@ -193,12 +213,90 @@ def validate_metadata_fields(metadata: dict[str, Any]) -> None:
         raise ValueError(f"Missing metadata fields: {sorted(missing_fields)}.")
 
 
+def mlflow_enabled(config: dict[str, Any]) -> bool:
+    return bool(config.get("mlflow", {}).get("enabled", False))
+
+
+def configure_mlflow(mlflow_config: dict[str, Any]) -> Any:
+    import mlflow
+
+    tracking_uri = str(mlflow_config["tracking_uri"])
+    experiment_name = str(mlflow_config["experiment_name"])
+
+    mlflow.set_tracking_uri(tracking_uri)
+    if mlflow.get_experiment_by_name(experiment_name) is None:
+        mlflow.create_experiment(
+            name=experiment_name,
+            artifact_location=str(mlflow_config["artifact_location"]),
+        )
+    mlflow.set_experiment(experiment_name)
+    return mlflow
+
+
+def log_candidate_run(
+    mlflow: Any,
+    result: CandidateResult,
+    training_config: dict[str, Any],
+    target: str,
+    number_of_features: int,
+) -> str:
+    with mlflow.start_run(run_name=result.model_name) as run:
+        mlflow.log_params(
+            {
+                "model_name": result.model_name,
+                "target": target,
+                "number_of_features": number_of_features,
+                "test_size": float(training_config["test_size"]),
+                "random_state": int(training_config["random_state"]),
+                "cv_folds": int(training_config["cv_folds"]),
+                "search_n_iter": int(training_config["search_n_iter"]),
+                "scoring": training_config["scoring"],
+                "best_params": json.dumps(result.best_params, sort_keys=True),
+            }
+        )
+        mlflow.log_metrics(
+            {
+                "cv_rmse": result.cv_rmse,
+                "test_rmse": result.test_rmse,
+                "test_mae": result.test_mae,
+                "test_r2": result.test_r2,
+            }
+        )
+        mlflow.set_tags(
+            {
+                "selected_model": str(result.selected_model).lower(),
+                "model_stage": "staging",
+            }
+        )
+        return run.info.run_id
+
+
+def log_training_artifacts(
+    mlflow: Any,
+    result: CandidateResult,
+    artifact_paths: list[Path],
+    model_path: Path,
+    log_model_artifact: bool,
+) -> None:
+    if result.mlflow_run_id is None:
+        return
+
+    with mlflow.start_run(run_id=result.mlflow_run_id):
+        mlflow.set_tag("selected_model", str(result.selected_model).lower())
+        for artifact_path in artifact_paths:
+            mlflow.log_artifact(str(artifact_path))
+        if log_model_artifact:
+            mlflow.log_artifact(str(model_path))
+
+
 def run(config_path: Path) -> Path:
     config = load_config(config_path)
     data, schema = load_feature_artifacts(config["features"])
     features = list(schema["features"])
     target = schema["target"]
     training_config = config["training"]
+    mlflow_config = config.get("mlflow", {})
+    mlflow_client = configure_mlflow(mlflow_config) if mlflow_enabled(config) else None
     random_state = int(training_config["random_state"])
 
     train_indices, test_indices = train_test_split(
@@ -223,7 +321,7 @@ def run(config_path: Path) -> Path:
         n_jobs=int(training_config["n_jobs"]),
     )
     comparison_rows: list[dict[str, Any]] = []
-    best_result: dict[str, Any] | None = None
+    best_result: CandidateResult | None = None
     configured_n_iter = int(training_config["search_n_iter"])
 
     for model_name, (pipeline, param_space) in candidates.items():
@@ -241,6 +339,24 @@ def run(config_path: Path) -> Path:
         search.fit(x_train, y_train)
         cv_rmse = float(-search.best_score_)
         test_metrics = evaluate_model(search.best_estimator_, x_test, y_test)
+        result = CandidateResult(
+            model_name=model_name,
+            best_estimator=search.best_estimator_,
+            best_params=search.best_params_,
+            cv_rmse=cv_rmse,
+            test_rmse=test_metrics["test_rmse"],
+            test_mae=test_metrics["test_mae"],
+            test_r2=test_metrics["test_r2"],
+        )
+        if mlflow_client is not None:
+            result.mlflow_run_id = log_candidate_run(
+                mlflow=mlflow_client,
+                result=result,
+                training_config=training_config,
+                target=target,
+                number_of_features=len(features),
+            )
+
         row = {
             "model_name": model_name,
             "cv_rmse": cv_rmse,
@@ -249,17 +365,12 @@ def run(config_path: Path) -> Path:
         }
         comparison_rows.append(row)
 
-        if best_result is None or cv_rmse < best_result["cv_rmse"]:
-            best_result = {
-                "model_name": model_name,
-                "model": search.best_estimator_,
-                "cv_rmse": cv_rmse,
-                "best_params": search.best_params_,
-                **test_metrics,
-            }
+        if best_result is None or cv_rmse < best_result.cv_rmse:
+            best_result = result
 
     if best_result is None:
         raise RuntimeError("No model candidates were trained.")
+    best_result.selected_model = True
 
     staging_dir = Path(config["models"]["staging_dir"])
     model_path = staging_dir / config["models"]["model_filename"]
@@ -274,11 +385,11 @@ def run(config_path: Path) -> Path:
     )
 
     staging_dir.mkdir(parents=True, exist_ok=True)
-    joblib.dump(best_result["model"], model_path)
+    joblib.dump(best_result.best_estimator, model_path)
     logger.info("Staging model saved")
 
     metadata = {
-        "model_name": best_result["model_name"],
+        "model_name": best_result.model_name,
         "model_stage": "staging",
         "target": target,
         "features": features,
@@ -287,17 +398,27 @@ def run(config_path: Path) -> Path:
         "random_state": random_state,
         "cv_folds": int(training_config["cv_folds"]),
         "search_n_iter": int(training_config["search_n_iter"]),
-        "best_params": best_result["best_params"],
-        "cv_rmse": best_result["cv_rmse"],
-        "test_rmse": best_result["test_rmse"],
-        "test_mae": best_result["test_mae"],
-        "test_r2": best_result["test_r2"],
+        "best_params": best_result.best_params,
+        "cv_rmse": best_result.cv_rmse,
+        "test_rmse": best_result.test_rmse,
+        "test_mae": best_result.test_mae,
+        "test_r2": best_result.test_r2,
     }
     validate_metadata_fields(metadata)
     write_json(metadata, metadata_path)
     write_json(metadata, metrics_path)
     pd.DataFrame(comparison_rows).to_csv(comparison_path, index=False)
     logger.info("Training metrics saved")
+
+    if mlflow_client is not None:
+        log_training_artifacts(
+            mlflow=mlflow_client,
+            result=best_result,
+            artifact_paths=[comparison_path, metrics_path, metadata_path],
+            model_path=model_path,
+            log_model_artifact=bool(mlflow_config["log_model_artifact"]),
+        )
+        logger.info("MLflow training runs logged")
 
     return model_path
 

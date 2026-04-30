@@ -46,6 +46,8 @@ reports/feature_importance/*.csv
 # MLflow
 mlruns/
 mlflow.db
+mlflow.db-shm
+mlflow.db-wal
 
 # OS/editor
 .DS_Store

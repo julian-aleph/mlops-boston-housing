@@ -1,6 +1,7 @@
 PYTHON ?= python3.11
+PORT ?= 8000
 
-.PHONY: setup data features train evaluate promote pipeline retrain test lint format ci
+.PHONY: setup data features train evaluate promote pipeline retrain serve kill-port serve-clean api-check mlflow-ui test lint format ci
 
 setup:
 	$(PYTHON) -m pip install -r requirements.txt
@@ -23,6 +24,26 @@ promote:
 pipeline: data features train evaluate promote
 
 retrain: pipeline
+
+serve:
+	uvicorn app.main:app --host 0.0.0.0 --port $(PORT) --reload
+
+kill-port:
+	@PID=$$(lsof -ti tcp:$(PORT)); \
+	if [ -n "$$PID" ]; then \
+		kill $$PID; \
+		echo "Killed process $$PID on port $(PORT)"; \
+	else \
+		echo "No process found on port $(PORT)"; \
+	fi
+
+serve-clean: kill-port serve
+
+api-check:
+	$(PYTHON) -c "from app.main import app; print('API loaded')"
+
+mlflow-ui:
+	mlflow ui --backend-store-uri sqlite:///mlflow.db --host 0.0.0.0 --port 5000
 
 test:
 	$(PYTHON) -m pytest tests/ -v
