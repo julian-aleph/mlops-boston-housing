@@ -91,7 +91,57 @@ make setup
 
 `make setup` instala las dependencias fijadas en `requirements.txt`.
 
-## 6. Ejecución del pipeline con Makefile
+## 6. Ruta rápida
+
+Para validar el proyecto en pocos pasos sin entrar al detalle de cada
+componente:
+
+```bash
+make setup
+make pipeline
+make serve
+```
+
+Esta secuencia:
+
+1. Instala dependencias.
+2. Ejecuta el pipeline completo y deja un modelo en `models/production/`.
+3. Levanta la API en `http://localhost:8000`.
+
+Para validar también el despliegue en contenedor y el monitoreo:
+
+```bash
+make pipeline
+make docker-build
+make docker-up
+make monitor
+```
+
+Esto deja disponibles la API, Prometheus y Grafana en local. La sección
+"Validación rápida final" detalla los checks manuales adicionales.
+
+## 7. Comandos principales
+
+Tabla resumen de los targets más usados del Makefile:
+
+| Comando             | Propósito                                                  |
+| ------------------- | ---------------------------------------------------------- |
+| `make setup`        | Instala dependencias del proyecto.                         |
+| `make pipeline`     | Ejecuta el pipeline end-to-end y promueve el modelo.       |
+| `make retrain`      | Reentrena reejecutando el pipeline completo.               |
+| `make serve`        | Levanta la API FastAPI local.                              |
+| `make api-check`    | Valida que la API carga los artefactos productivos.        |
+| `make mlflow-ui`    | Abre la UI de MLflow.                                      |
+| `make docker-build` | Construye la imagen de serving.                            |
+| `make docker-up`    | Levanta el stack `api + prometheus + grafana` local.       |
+| `make docker-down`  | Detiene el stack local.                                    |
+| `make monitor`      | Imprime URLs y credenciales del stack de observabilidad.   |
+| `make lint`         | Ejecuta linting y validación de imports.                   |
+| `make test`         | Ejecuta la suite de pruebas.                               |
+
+Las secciones siguientes describen cada bloque en detalle.
+
+## 8. Ejecución del pipeline con Makefile
 
 El Makefile es la interfaz operativa principal. Todos los comandos del
 pipeline están expuestos como targets.
@@ -136,7 +186,7 @@ make retrain
 `make retrain` reejecuta el pipeline completo. Se utiliza cuando hay nuevos
 datos o cambios en la configuración.
 
-## 7. Preparación de datos y features
+## 9. Preparación de datos y features
 
 - Dataset descargado desde KaggleHub (`altavish/boston-housing-dataset`).
 - Variable objetivo: `MEDV`.
@@ -150,7 +200,7 @@ No se implementa un feature store completo porque el dataset es pequeño y
 estático. Para online/offline feature consistency se evaluaría Feast en una
 fase posterior.
 
-## 8. Entrenamiento y selección del modelo
+## 10. Entrenamiento y selección del modelo
 
 Modelos candidatos:
 
@@ -173,7 +223,7 @@ Uso de `sklearn Pipeline`:
 - Reduce diferencias entre training y serving.
 - Hace que el `joblib` persistido sea autosuficiente para inferencia.
 
-## 9. Tracking de experimentos con MLflow
+## 11. Tracking de experimentos con MLflow
 
 ```bash
 make train
@@ -192,7 +242,7 @@ http://localhost:5000
 - MLflow no reemplaza la persistencia con joblib.
 - FastAPI no depende de MLflow para servir predicciones.
 
-## 10. Versionamiento de artefactos con DVC
+## 12. Versionamiento de artefactos con DVC
 
 ```bash
 make dvc-repro
@@ -215,7 +265,7 @@ dvc dag
 - No se configura un remote en este challenge.
 - Una mejora futura es agregar un remote local, SSH, S3, GCS o equivalente.
 
-## 11. Serving local con FastAPI
+## 13. Serving local con FastAPI
 
 ```bash
 make pipeline
@@ -275,19 +325,33 @@ El valor exacto de `prediction` depende del modelo promovido y no es fijo.
 `make api-check` valida que `app.main` importa correctamente cargando los
 artefactos de `models/production/`.
 
-## 12. Despliegue local con Docker
+## 14. Despliegue local con Docker
+
+El despliegue Docker sirve un modelo ya promovido. La imagen no entrena: es
+únicamente para inferencia. Por eso es **prerrequisito** ejecutar primero el
+pipeline para producir el artefacto productivo.
+
+Orden esperado:
 
 ```bash
-make pipeline
-make docker-build
-make docker-up
-make docker-logs
-make docker-down
+make pipeline        # paso obligatorio: genera models/production/
+make docker-build    # construye la imagen de serving
+make docker-up       # levanta api + prometheus + grafana
+make docker-logs     # logs del stack
+make docker-down     # detiene el stack
 ```
+
+Si `models/production/` está vacío, la API arrancará sin modelo cargado y
+`/health` reportará un estado no listo. La solución es ejecutar
+`make pipeline` antes de `make docker-up`.
+
+Detalles del despliegue:
 
 - La imagen Docker es solo para serving.
 - El entrenamiento se ejecuta fuera de la imagen.
-- El contenedor monta `models/production/` y `configs/` en read-only.
+- El contenedor monta `models/production/` y `configs/` en read-only, de
+  modo que un nuevo `make pipeline` en el host se refleja al reiniciar el
+  contenedor.
 - FastAPI no depende de MLflow ni DVC en runtime.
 
 Healthcheck contra el contenedor:
@@ -318,7 +382,7 @@ curl -X POST "http://localhost:8000/predict" \
   }'
 ```
 
-## 13. Monitoreo básico
+## 15. Monitoreo básico
 
 ```bash
 make docker-up
@@ -359,7 +423,7 @@ Métricas expuestas:
 Esta capa cubre monitoreo operativo y distribución de predicciones.
 Detección avanzada de drift queda como mejora futura.
 
-## 14. Calidad de código
+## 16. Calidad de código
 
 ```bash
 make lint
@@ -371,7 +435,7 @@ make test
 - **pytest:** contratos de preprocessing, training y API, incluyendo el
   endpoint `/metrics`.
 
-## 15. CI/CD con GitHub Actions
+## 17. CI/CD con GitHub Actions
 
 Workflow: `.github/workflows/ci.yml`.
 
@@ -391,8 +455,14 @@ make api-check
 make docker-build
 ```
 
-- No despliega a nube. El proyecto es local-first y agnóstico de proveedor.
-- El `docker-build` actúa como verificación de readiness para deploy.
+Alcance del CI:
+
+- **No hay despliegue a nube.** El proyecto es local-first y agnóstico de
+  proveedor; CI no publica imágenes ni aplica infraestructura.
+- `docker-build` se ejecuta como **validación de readiness para deploy**:
+  confirma que el `Dockerfile` es válido, que la imagen se construye con el
+  modelo productivo dentro del workflow y que el artefacto serviría sin
+  cambios en cualquier entorno con Docker.
 - Docker Compose, Prometheus y Grafana no se ejecutan en CI; solo se
   construye la imagen.
 
@@ -402,7 +472,7 @@ Sobre KaggleHub:
 - Si aparecen rate limits, se pueden configurar `KAGGLE_USERNAME` y
   `KAGGLE_KEY` como secrets del repositorio.
 
-## 16. Reentrenamiento
+## 18. Reentrenamiento
 
 ```bash
 make retrain
@@ -416,7 +486,7 @@ make retrain
 - Un modelo recién entrenado no sustituye al de producción solo por ser nuevo:
   debe superar el umbral de mejora.
 
-## 17. Seguridad, escalabilidad y limitaciones
+## 19. Seguridad, escalabilidad y limitaciones
 
 Limitaciones intencionales para mantener el alcance del challenge:
 
@@ -430,15 +500,36 @@ Limitaciones intencionales para mantener el alcance del challenge:
 - Sin estrategia canary ni blue/green.
 
 Estas decisiones priorizan claridad y reproducibilidad en un entregable de
-6 a 8 horas, sin acoplar el código a un proveedor de nube específico.
+6 a 8 horas, sin acoplar el código a un proveedor específico.
 
-## 18. Mejoras futuras
+## 20. Consideraciones éticas sobre el dataset
+
+Boston Housing es un dataset histórico (1978) con limitaciones documentadas.
+En particular, la variable `B` es una transformación de la proporción de
+residentes afroamericanos por barrio, construida bajo supuestos del estudio
+original que hoy no se consideran adecuados para sistemas de decisión.
+
+Decisiones del proyecto:
+
+- El dataset se utiliza únicamente como caso de demostración técnica del
+  flujo MLOps, no como referencia para tasación inmobiliaria real.
+- No se realiza análisis de fairness ni mitigación de sesgos, dado que el
+  foco del entregable es la infraestructura y no el modelo.
+- Para un caso productivo se recomendaría reemplazar el dataset por uno
+  actual sin variables sensibles ni proxies de raza, y agregar revisiones
+  de fairness antes de promover a producción.
+
+## 21. Mejoras futuras
+
+Componentes que no forman parte del proyecto actual y se evaluarían en
+fases posteriores:
 
 - **Feature store:** Feast si se requiere consistencia online/offline de
   features compartidas.
-- **Infra como código:** Terraform si el proyecto evoluciona a nube
-  (S3 / GCS para DVC, RDS / Cloud SQL para MLflow, ECS / EKS / Cloud Run para
-  el API).
+- **Infra como código (Terraform):** evolución posible si el proyecto se
+  lleva a nube. No se incluye hoy porque el alcance es local-first; se
+  introduciría junto con S3 / GCS para DVC, RDS / Cloud SQL para MLflow y
+  ECS / EKS / Cloud Run para el API.
 - **MLflow multi-usuario:** backend PostgreSQL en lugar de SQLite y artifact
   store remoto.
 - **Model governance:** MLflow Model Registry con stages aprobados.
@@ -450,13 +541,18 @@ Estas decisiones priorizan claridad y reproducibilidad en un entregable de
   privado.
 - **Remote DVC:** almacenamiento compartido de artefactos versionados.
 
-## 19. Uso de herramientas de IA
+## 22. Uso de herramientas de IA
 
-Se utilizaron herramientas de asistencia con IA como apoyo para acelerar tareas de planeación, creación de estructuras iniciales, documentación e ideas de pruebas. El diseño técnico, la integración del sistema, la depuración, la ejecución de validaciones y la revisión final fueron realizados por el autor.
+Se usaron herramientas de asistencia con IA como apoyo puntual para tareas
+acotadas: planeación inicial, generación de boilerplate, redacción y
+revisión de documentación, e ideación de casos de prueba. No se delegó la
+toma de decisiones técnicas ni la validación del sistema. La definición
+de la arquitectura, la integración entre componentes, la depuración, la
+validación funcional y la revisión final fueron realizadas manualmente por
+el autor. El proyecto es reproducible mediante los comandos documentados en
+Makefile, DVC y Docker.
 
-La reproducibilidad del proyecto se verifica mediante Makefile, DVC, Docker y GitHub Actions.
-
-## 20. Validación rápida final
+## 23. Validación rápida final
 
 Comandos automatizables:
 
