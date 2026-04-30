@@ -5,13 +5,13 @@ Boston Housing, con pipeline reproducible, tracking de experimentos,
 versionamiento de artefactos, API REST, despliegue local, monitoreo básico y
 CI/CD.
 
-## 1. Objetivo
+## 1. Descripción
 
-- No es un ejercicio de entrenamiento aislado: implementa un flujo ML mínimo
+- Este no es un ejercicio de entrenamiento aislado: implementa un flujo MLOPs mínimo
   con orientación a producción.
-- Cubre preparación de datos, entrenamiento, evaluación, persistencia,
+- Es un ejercicio que cubre preparación de datos, entrenamiento, evaluación, persistencia,
   serving, monitoreo y reentrenamiento.
-- Diseñado para correr completamente en una sola máquina, sin depender de
+- Está diseñado para correr completamente en una sola máquina, sin depender de
   servicios administrados.
 - Las decisiones técnicas son agnósticas de proveedor y portables a nube sin
   reescribir el código.
