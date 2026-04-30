@@ -3,7 +3,7 @@
   "uid": "boston-housing-api",
   "title": "Boston Housing API",
   "schemaVersion": 38,
-  "version": 1,
+  "version": 2,
   "editable": true,
   "refresh": "10s",
   "time": {
@@ -20,7 +20,8 @@
       "gridPos": { "h": 6, "w": 6, "x": 0, "y": 0 },
       "targets": [
         {
-          "expr": "rate(prediction_requests_total[1m])",
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "expr": "sum(rate(prediction_requests_total[1m]))",
           "refId": "A"
         }
       ],
@@ -42,7 +43,8 @@
       "gridPos": { "h": 6, "w": 6, "x": 6, "y": 0 },
       "targets": [
         {
-          "expr": "prediction_errors_total",
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "expr": "sum(prediction_errors_total)",
           "refId": "A"
         }
       ],
@@ -64,6 +66,7 @@
       "gridPos": { "h": 6, "w": 6, "x": 12, "y": 0 },
       "targets": [
         {
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
           "expr": "model_loaded",
           "refId": "A"
         }
@@ -79,6 +82,32 @@
       }
     },
     {
+      "id": 6,
+      "type": "stat",
+      "title": "Model info",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 6, "w": 6, "x": 18, "y": 0 },
+      "targets": [
+        {
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "expr": "model_info",
+          "refId": "A",
+          "instant": true,
+          "format": "table"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": { "unit": "short" },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
+        "colorMode": "value",
+        "graphMode": "none",
+        "textMode": "name"
+      }
+    },
+    {
       "id": 4,
       "type": "timeseries",
       "title": "Prediction latency (p50 / p95)",
@@ -86,11 +115,13 @@
       "gridPos": { "h": 9, "w": 12, "x": 0, "y": 6 },
       "targets": [
         {
-          "expr": "histogram_quantile(0.5, sum(rate(prediction_latency_seconds_bucket[5m])) by (le))",
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "expr": "histogram_quantile(0.50, sum(rate(prediction_latency_seconds_bucket[5m])) by (le))",
           "refId": "A",
           "legendFormat": "p50"
         },
         {
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
           "expr": "histogram_quantile(0.95, sum(rate(prediction_latency_seconds_bucket[5m])) by (le))",
           "refId": "B",
           "legendFormat": "p95"
@@ -109,11 +140,13 @@
       "gridPos": { "h": 9, "w": 12, "x": 12, "y": 6 },
       "targets": [
         {
-          "expr": "histogram_quantile(0.5, sum(rate(prediction_value_bucket[5m])) by (le))",
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "expr": "histogram_quantile(0.50, sum(rate(prediction_value_bucket[5m])) by (le))",
           "refId": "A",
           "legendFormat": "p50"
         },
         {
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
           "expr": "histogram_quantile(0.95, sum(rate(prediction_value_bucket[5m])) by (le))",
           "refId": "B",
           "legendFormat": "p95"
