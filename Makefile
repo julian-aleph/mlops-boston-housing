@@ -1,7 +1,7 @@
 PYTHON ?= python3.11
 PORT ?= 8000
 
-.PHONY: setup data features train evaluate promote pipeline retrain serve kill-port serve-clean api-check mlflow-ui dvc-repro dvc-status dvc-metrics test lint format ci
+.PHONY: setup data features train evaluate promote pipeline retrain serve kill-port serve-clean api-check mlflow-ui dvc-repro dvc-status dvc-metrics test lint format ci docker-build docker-up docker-down docker-logs
 
 setup:
 	$(PYTHON) -m pip install -r requirements.txt
