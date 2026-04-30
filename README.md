@@ -1,91 +1,179 @@
 # MLOps local - Boston Housing
 
-Proyecto minimo y local para preparar datos, entrenar modelos de regresion y
-persistir un modelo candidato para Boston Housing.
+Proyecto MLOps local, open-source y agnóstico de nube para regresión sobre
+Boston Housing, con pipeline reproducible, tracking de experimentos,
+versionamiento de artefactos, API REST, despliegue local, monitoreo básico y
+CI/CD.
 
-## Alcance implementado
+## 1. Objetivo
 
-- Descarga del dataset desde KaggleHub.
-- Validacion del dataset raw.
-- Perfil minimo de datos raw.
-- Preparacion de features.
-- Preprocesamiento reutilizable con `QuantileClipper`.
-- Entrenamiento con `sklearn Pipeline`.
-- Evaluacion en hold-out reproducible.
-- Importancia de features por permutacion.
-- Persistencia de modelo en staging.
-- Promocion local de staging a produccion.
-- API local con FastAPI para servir el modelo en produccion.
-- Tracking de experimentos con MLflow durante entrenamiento.
-- Versionado de artefactos y DAG reproducible con DVC.
-- Despliegue local del API con Docker y Docker Compose.
-- Monitoreo basico del servicio con Prometheus y Grafana.
+- No es un ejercicio de entrenamiento aislado: implementa un flujo ML mínimo
+  con orientación a producción.
+- Cubre preparación de datos, entrenamiento, evaluación, persistencia,
+  serving, monitoreo y reentrenamiento.
+- Diseñado para correr completamente en una sola máquina, sin depender de
+  servicios administrados.
+- Las decisiones técnicas son agnósticas de proveedor y portables a nube sin
+  reescribir el código.
 
-Validacion automatica con GitHub Actions.
+## 2. Arquitectura general
 
-## Comandos
+```text
+Raw data
+  -> Data profile
+  -> Feature preparation
+  -> Training + MLflow
+  -> Evaluation
+  -> Promotion
+  -> FastAPI serving
+  -> Docker deployment
+  -> Prometheus/Grafana monitoring
+  -> GitHub Actions validation
+```
+
+Responsabilidades por componente:
+
+- **Git:** código fuente, configuración y documentación.
+- **Makefile:** interfaz operativa única para todas las tareas comunes.
+- **DVC:** DAG del pipeline y versionamiento de artefactos generados.
+- **MLflow:** tracking de experimentos con backend SQLite local.
+- **joblib:** persistencia local del modelo final servido por la API.
+- **FastAPI:** inferencia online con `/predict`, `/health` y `/metrics`.
+- **Docker Compose:** despliegue local del stack `api + prometheus + grafana`.
+- **Prometheus / Grafana:** observabilidad básica del servicio.
+- **GitHub Actions:** validación automática en cada push y pull request.
+
+## 3. Estructura del repositorio
+
+```text
+boston-housing-mlops/
+├── app/                  # FastAPI: main, schemas, model loader, monitoring
+├── src/                  # Pipeline: data, features, preprocessing, train, evaluate, promote
+├── tests/                # Pytest: contratos de API, training y preprocessing
+├── configs/              # params.yaml: configuración única de pipeline y serving
+├── data/                 # raw/ y processed/ (no comiteados)
+├── models/               # staging/ y production/ (no comiteados)
+├── reports/              # métricas, perfiles, importancia de features
+├── monitoring/           # prometheus.yml + provisioning de Grafana
+├── docker/               # Dockerfile de la imagen serving
+├── .github/workflows/    # ci.yml: workflow de CI
+├── docs/                 # outline de presentación, checklist de validación
+├── Makefile
+├── docker-compose.yml
+├── dvc.yaml
+├── requirements.txt
+├── pyproject.toml
+└── README.md
+```
+
+Carpetas clave:
+
+- `app/`: solo lo necesario para servir.
+- `src/`: lógica del pipeline reutilizable y testeable.
+- `configs/params.yaml`: punto único de configuración.
+- `models/production/`: artefacto cargado por la API en runtime.
+
+## 4. Requisitos
+
+- Python 3.11
+- Docker y Docker Compose
+- Make
+- Git
+- Opcional: CLI de DVC si se ejecutan comandos `dvc` directamente
+
+## 5. Instalación local
 
 ```bash
+python3.11 -m venv .venv
+source .venv/bin/activate
 make setup
+```
+
+`make setup` instala las dependencias fijadas en `requirements.txt`.
+
+## 6. Ejecución del pipeline con Makefile
+
+El Makefile es la interfaz operativa principal. Todos los comandos del
+pipeline están expuestos como targets.
+
+Comandos individuales:
+
+```bash
 make data
 make features
 make train
 make evaluate
 make promote
-make pipeline
-make retrain
-make serve
-make api-check
-make mlflow-ui
-make dvc-repro
-make dvc-status
-make dvc-metrics
-make test
-make lint
 ```
 
-## Artefactos generados
+- `make data`: descarga el dataset, valida el raw y genera el data profile.
+- `make features`: normaliza columnas y produce dataset procesado, schema y
+  registry de features.
+- `make train`: entrena los candidatos y registra los runs en MLflow.
+- `make evaluate`: evalúa el modelo staging y calcula importancia por
+  permutación.
+- `make promote`: promueve staging a producción si se cumplen las reglas de
+  promoción.
 
-- `data/raw/boston_housing.csv`
-- `reports/metrics/data_profile.json`
-- `data/processed/boston_housing_processed.parquet`
-- `data/processed/feature_schema.json`
-- `data/processed/feature_registry.json`
-- `models/staging/model.joblib`
-- `models/production/model.joblib`
-- `models/production/metadata.json`
-- `models/production/metrics.json`
-- `reports/metrics/staging_metrics.json`
-- `reports/metrics/model_comparison.csv`
-- `reports/feature_importance/feature_importance.csv`
-- `reports/metrics/promotion_report.json`
+Pipeline completo end-to-end:
 
-## Modelos candidatos
+```bash
+make pipeline
+```
+
+Equivalente a:
+
+```text
+data -> features -> train -> evaluate -> promote
+```
+
+Reentrenamiento:
+
+```bash
+make retrain
+```
+
+`make retrain` reejecuta el pipeline completo. Se utiliza cuando hay nuevos
+datos o cambios en la configuración.
+
+## 7. Preparación de datos y features
+
+- Dataset descargado desde KaggleHub (`altavish/boston-housing-dataset`).
+- Variable objetivo: `MEDV`.
+- El profiling raw produce `reports/metrics/data_profile.json`.
+- La preparación de features genera:
+  - `data/processed/boston_housing_processed.parquet`
+  - `data/processed/feature_schema.json`
+  - `data/processed/feature_registry.json`
+
+No se implementa un feature store completo porque el dataset es pequeño y
+estático. Para online/offline feature consistency se evaluaría Feast en una
+fase posterior.
+
+## 8. Entrenamiento y selección del modelo
+
+Modelos candidatos:
 
 - Ridge
 - ElasticNet
 - RandomForestRegressor
 - HistGradientBoostingRegressor
 
-## Uso de sklearn Pipeline
+Selección:
 
-Cada modelo se entrena dentro de un `sklearn Pipeline` para mantener consistente
-el preprocesamiento durante entrenamiento e inferencia. Esto reduce diferencias
-entre entrenamiento y uso posterior del modelo, y deja el artefacto persistido
-con el preprocesamiento necesario incluido.
+- `RandomizedSearchCV` con CV configurable en `configs/params.yaml`.
+- Métrica primaria: RMSE.
+- Métricas secundarias: MAE y R2.
+- El modelo ganador se persiste en `models/staging/` y se promueve a
+  `models/production/` si supera el umbral de mejora.
 
-## MLflow tracking
+Uso de `sklearn Pipeline`:
 
-MLflow forma parte del stage de entrenamiento. `make train` registra un run por
-modelo candidato con hiperparametros, metricas y el tag de modelo seleccionado.
+- Mantiene preprocesamiento y modelo en un único artefacto.
+- Reduce diferencias entre training y serving.
+- Hace que el `joblib` persistido sea autosuficiente para inferencia.
 
-MLflow usa SQLite como backend store local en `mlflow.db` y guarda artifacts en
-`mlruns/`. Esto evita limitaciones del tracking basado solo en archivos dentro
-de la UI de MLflow, sin requerir un servidor remoto.
-
-MLflow no reemplaza la persistencia local con joblib: `models/staging/model.joblib`
-sigue siendo el artefacto usado por promocion y serving local. La API FastAPI no
-depende de MLflow.
+## 9. Tracking de experimentos con MLflow
 
 ```bash
 make train
@@ -96,15 +184,15 @@ make mlflow-ui
 http://localhost:5000
 ```
 
-## Artifact versioning and pipeline reproducibility with DVC
+- MLflow está integrado al stage de entrenamiento.
+- Cada candidato se registra como un run independiente.
+- Se trackean hiperparámetros, métricas y el tag del modelo seleccionado.
+- Backend store: SQLite en `mlflow.db`.
+- Artifact store: directorio local `mlruns/`.
+- MLflow no reemplaza la persistencia con joblib.
+- FastAPI no depende de MLflow para servir predicciones.
 
-DVC formaliza el pipeline como un DAG y versiona artefactos generados sin
-commitear outputs pesados directamente en Git. El Makefile sigue siendo la
-interfaz operativa diaria; DVC se usa cuando se necesita reproducibilidad,
-seguimiento de dependencias o versionado de artefactos.
-
-No hay remote cloud configurado para este challenge. Una mejora futura podria
-agregar un remote local, S3, GCS o SSH.
+## 10. Versionamiento de artefactos con DVC
 
 ```bash
 make dvc-repro
@@ -112,107 +200,43 @@ make dvc-status
 make dvc-metrics
 ```
 
-Equivalente directo:
+Comandos directos:
 
 ```bash
 dvc repro
 dvc status
 dvc metrics show
+dvc dag
 ```
 
-## API serving
+- DVC formaliza el pipeline como un DAG en `dvc.yaml`.
+- Los artefactos generados se versionan vía DVC y no se comitean directamente
+  en Git.
+- No se configura un remote en este challenge.
+- Una mejora futura es agregar un remote local, SSH, S3, GCS o equivalente.
 
-Ensure a production model exists:
+## 11. Serving local con FastAPI
 
 ```bash
 make pipeline
-```
-
-Start the API:
-
-```bash
 make serve
-```
-
-Check API import:
-
-```bash
 make api-check
 ```
 
-Open the interactive docs:
-
-```text
-http://localhost:8000/docs
-```
-
-Example prediction request:
-
-```bash
-curl -X POST "http://localhost:8000/predict" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "crim": 0.00632,
-    "zn": 18.0,
-    "indus": 2.31,
-    "chas": 0.0,
-    "nox": 0.538,
-    "rm": 6.575,
-    "age": 65.2,
-    "dis": 4.09,
-    "rad": 1.0,
-    "tax": 296.0,
-    "ptratio": 15.3,
-    "b": 396.9,
-    "lstat": 4.98
-  }'
-```
-
-## Local deployment with Docker
-
-La imagen Docker es solo para serving. El entrenamiento se ejecuta fuera de la
-imagen mediante el Makefile o el pipeline de DVC. El contenedor carga el
-artefacto de produccion desde `models/production`, lo que mantiene separadas
-las responsabilidades de entrenamiento y serving.
-
-Asegurar que existe un modelo de produccion antes de construir la imagen:
-
-```bash
-make pipeline
-```
-
-Construir la imagen del API:
-
-```bash
-make docker-build
-```
-
-Levantar el API con Docker Compose:
-
-```bash
-make docker-up
-```
-
-Ver logs del contenedor:
-
-```bash
-make docker-logs
-```
-
-Detener servicios:
-
-```bash
-make docker-down
-```
-
-Endpoints disponibles:
+URLs:
 
 ```text
 http://localhost:8000/docs
 http://localhost:8000/health
 ```
 
-Ejemplo de prediccion contra el contenedor:
+Healthcheck:
+
+```bash
+curl http://localhost:8000/health
+```
+
+Predicción:
 
 ```bash
 curl -X POST "http://localhost:8000/predict" \
@@ -234,17 +258,69 @@ curl -X POST "http://localhost:8000/predict" \
   }'
 ```
 
-## Basic monitoring
+Forma esperada de la respuesta:
 
-El API expone metricas Prometheus en `/metrics`. Prometheus scrapea el servicio
-`api` cada 15 segundos y Grafana se conecta a Prometheus como datasource por
-defecto. Esta fase cubre comportamiento operativo y distribucion de
-predicciones; deteccion avanzada de drift queda como mejora futura.
+```json
+{
+  "prediction": 24.8,
+  "model_name": "random_forest",
+  "model_stage": "production",
+  "target": "medv",
+  "features_used": ["crim", "zn", "indus", "chas", "nox", "rm", "age", "dis", "rad", "tax", "ptratio", "b", "lstat"]
+}
+```
 
-Levantar el stack completo:
+El valor exacto de `prediction` depende del modelo promovido y no es fijo.
+
+`make api-check` valida que `app.main` importa correctamente cargando los
+artefactos de `models/production/`.
+
+## 12. Despliegue local con Docker
 
 ```bash
 make pipeline
+make docker-build
+make docker-up
+make docker-logs
+make docker-down
+```
+
+- La imagen Docker es solo para serving.
+- El entrenamiento se ejecuta fuera de la imagen.
+- El contenedor monta `models/production/` y `configs/` en read-only.
+- FastAPI no depende de MLflow ni DVC en runtime.
+
+Healthcheck contra el contenedor:
+
+```bash
+curl http://localhost:8000/health
+```
+
+Predicción contra el contenedor:
+
+```bash
+curl -X POST "http://localhost:8000/predict" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "crim": 0.00632,
+    "zn": 18.0,
+    "indus": 2.31,
+    "chas": 0.0,
+    "nox": 0.538,
+    "rm": 6.575,
+    "age": 65.2,
+    "dis": 4.09,
+    "rad": 1.0,
+    "tax": 296.0,
+    "ptratio": 15.3,
+    "b": 396.9,
+    "lstat": 4.98
+  }'
+```
+
+## 13. Monitoreo básico
+
+```bash
 make docker-up
 make monitor
 ```
@@ -265,36 +341,148 @@ user: admin
 password: admin
 ```
 
-Metricas expuestas:
+Métricas Prometheus:
 
-- `prediction_requests_total` (Counter)
-- `prediction_errors_total` (Counter)
-- `prediction_latency_seconds` (Histogram)
-- `prediction_value` (Histogram)
-- `model_loaded` (Gauge)
-- `model_info` (Gauge con labels `model_name`, `model_stage`, `target`)
+```bash
+curl http://localhost:8000/metrics
+```
 
-El dashboard provisionado para Grafana incluye request rate, latencia (p50/p95),
-total de errores, estado del modelo y distribucion de la prediccion.
+Métricas expuestas:
 
-## CI/CD
+- `prediction_requests_total`
+- `prediction_errors_total`
+- `prediction_latency_seconds`
+- `prediction_value`
+- `model_loaded`
+- `model_info`
 
-GitHub Actions ejecuta `.github/workflows/ci.yml` en cada push y pull request
-contra `main`. El workflow valida calidad de codigo, tests, ejecucion del
-pipeline de entrenamiento, importacion del API y build de la imagen Docker.
+Esta capa cubre monitoreo operativo y distribución de predicciones.
+Detección avanzada de drift queda como mejora futura.
 
-El workflow no despliega a cloud porque el challenge es local-first y
-cloud-agnostic. El build de la imagen Docker actua como verificacion de
-readiness para deploy.
+## 14. Calidad de código
 
-Pasos del workflow:
+```bash
+make lint
+make test
+```
 
-- `make setup` — instalar dependencias.
-- `make lint` — Ruff y compileall.
-- `make test` — suite de pytest.
-- `make pipeline` — data, features, train, evaluate, promote.
-- `make api-check` — validar que el API importa con el modelo de produccion.
-- `make docker-build` — construir la imagen serving.
+- **Ruff:** linting y formateo.
+- **compileall:** validación de imports y sintaxis sobre `src/` y `tests/`.
+- **pytest:** contratos de preprocessing, training y API, incluyendo el
+  endpoint `/metrics`.
 
-Docker Compose, Prometheus y Grafana no se ejecutan en CI; el build de la
-imagen es suficiente como senal de readiness.
+## 15. CI/CD con GitHub Actions
+
+Workflow: `.github/workflows/ci.yml`.
+
+Triggers:
+
+- `push` a `main`
+- `pull_request` a `main`
+
+Pasos:
+
+```text
+make setup
+make lint
+make test
+make pipeline
+make api-check
+make docker-build
+```
+
+- No despliega a nube. El proyecto es local-first y agnóstico de proveedor.
+- El `docker-build` actúa como verificación de readiness para deploy.
+- Docker Compose, Prometheus y Grafana no se ejecutan en CI; solo se
+  construye la imagen.
+
+Sobre KaggleHub:
+
+- El pipeline en CI descarga el dataset público vía KaggleHub.
+- Si aparecen rate limits, se pueden configurar `KAGGLE_USERNAME` y
+  `KAGGLE_KEY` como secrets del repositorio.
+
+## 16. Reentrenamiento
+
+```bash
+make retrain
+```
+
+- `make retrain` ejecuta el pipeline completo (`data -> features -> train ->
+  evaluate -> promote`).
+- El modelo entrenado queda en `models/staging/` antes de ser evaluado.
+- La promoción a producción se controla por comparación de métricas en
+  `src/promote.py` (umbral `promotion.min_rmse_improvement`).
+- Un modelo recién entrenado no sustituye al de producción solo por ser nuevo:
+  debe superar el umbral de mejora.
+
+## 17. Seguridad, escalabilidad y limitaciones
+
+Limitaciones intencionales para mantener el alcance del challenge:
+
+- Sin autenticación ni autorización en los endpoints.
+- Sin rate limiting.
+- Sin detección avanzada de drift (datos, concept, performance).
+- Sin gestión de secrets de grado producción.
+- Sin MLflow Model Registry.
+- Sin remote DVC configurado.
+- Sin despliegue a nube.
+- Sin estrategia canary ni blue/green.
+
+Estas decisiones priorizan claridad y reproducibilidad en un entregable de
+6 a 8 horas, sin acoplar el código a un proveedor específico.
+
+## 18. Mejoras futuras
+
+- **Feature store:** Feast si se requiere consistencia online/offline de
+  features compartidas.
+- **Infra como código:** Terraform si el proyecto evoluciona a nube
+  (S3 / GCS para DVC, RDS / Cloud SQL para MLflow, ECS / EKS / Cloud Run para
+  el API).
+- **MLflow multi-usuario:** backend PostgreSQL en lugar de SQLite y artifact
+  store remoto.
+- **Model governance:** MLflow Model Registry con stages aprobados.
+- **Drift monitoring:** Evidently o WhyLabs OSS para drift de datos y
+  predicciones, con reentrenamiento disparado por alertas.
+- **Hardening del API:** autenticación (OAuth2 / API keys) y rate limiting.
+- **Despliegue progresivo:** canary o blue/green con un proxy.
+- **Container registry:** push automatizado de la imagen a un registry
+  privado.
+- **Remote DVC:** almacenamiento compartido de artefactos versionados.
+
+## 19. Uso de herramientas de IA
+
+Se usaron herramientas de asistencia con IA como apoyo de productividad para
+planeación, generación de boilerplate, revisión de documentación e ideas de
+pruebas. Las decisiones técnicas, ejecución, depuración, validación y
+revisión final fueron realizadas manualmente por el autor. El proyecto es
+reproducible mediante los comandos documentados en Makefile, DVC y Docker.
+
+## 20. Validación rápida final
+
+Comandos automatizables:
+
+```bash
+make setup
+make pipeline
+make api-check
+make docker-build
+make lint
+make test
+```
+
+Servicios locales:
+
+```bash
+make docker-up
+make monitor
+```
+
+Checks manuales:
+
+- Abrir `http://localhost:8000/docs` y disparar `/predict`.
+- Validar `/health` y `/metrics`.
+- Abrir `http://localhost:5000` para MLflow.
+- Abrir `http://localhost:9090` para Prometheus.
+- Abrir `http://localhost:3000` para Grafana.
+- Verificar el estado del workflow en GitHub Actions tras un push.
