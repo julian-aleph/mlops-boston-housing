@@ -19,8 +19,9 @@ persistir un modelo candidato para Boston Housing.
 - Tracking de experimentos con MLflow durante entrenamiento.
 - Versionado de artefactos y DAG reproducible con DVC.
 - Despliegue local del API con Docker y Docker Compose.
+- Monitoreo basico del servicio con Prometheus y Grafana.
 
-Monitoreo y GitHub Actions se agregaran en fases posteriores.
+GitHub Actions se agregara en fases posteriores.
 
 ## Comandos
 
@@ -232,3 +233,46 @@ curl -X POST "http://localhost:8000/predict" \
     "lstat": 4.98
   }'
 ```
+
+## Basic monitoring
+
+El API expone metricas Prometheus en `/metrics`. Prometheus scrapea el servicio
+`api` cada 15 segundos y Grafana se conecta a Prometheus como datasource por
+defecto. Esta fase cubre comportamiento operativo y distribucion de
+predicciones; deteccion avanzada de drift queda como mejora futura.
+
+Levantar el stack completo:
+
+```bash
+make pipeline
+make docker-up
+make monitor
+```
+
+URLs:
+
+```text
+FastAPI docs:    http://localhost:8000/docs
+Metrics:         http://localhost:8000/metrics
+Prometheus:      http://localhost:9090
+Grafana:         http://localhost:3000
+```
+
+Acceso por defecto a Grafana:
+
+```text
+user: admin
+password: admin
+```
+
+Metricas expuestas:
+
+- `prediction_requests_total` (Counter)
+- `prediction_errors_total` (Counter)
+- `prediction_latency_seconds` (Histogram)
+- `prediction_value` (Histogram)
+- `model_loaded` (Gauge)
+- `model_info` (Gauge con labels `model_name`, `model_stage`, `target`)
+
+El dashboard provisionado para Grafana incluye request rate, latencia (p50/p95),
+total de errores, estado del modelo y distribucion de la prediccion.

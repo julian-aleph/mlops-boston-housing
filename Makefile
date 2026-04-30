@@ -1,7 +1,7 @@
 PYTHON ?= python3.11
 PORT ?= 8000
 
-.PHONY: setup data features train evaluate promote pipeline retrain serve kill-port serve-clean api-check mlflow-ui dvc-repro dvc-status dvc-metrics test lint format ci docker-build docker-up docker-down docker-logs
+.PHONY: setup data features train evaluate promote pipeline retrain serve kill-port serve-clean api-check mlflow-ui dvc-repro dvc-status dvc-metrics test lint format ci docker-build docker-up docker-down docker-logs monitor
 
 setup:
 	$(PYTHON) -m pip install -r requirements.txt
@@ -78,3 +78,9 @@ docker-down:
 
 docker-logs:
 	docker compose logs -f api
+
+monitor:
+	@echo "FastAPI docs:    http://localhost:8000/docs"
+	@echo "FastAPI metrics: http://localhost:8000/metrics"
+	@echo "Prometheus:      http://localhost:9090"
+	@echo "Grafana:         http://localhost:3000"

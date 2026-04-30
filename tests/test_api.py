@@ -58,3 +58,15 @@ def test_predict_valid_payload() -> None:
     assert payload["model_stage"] == "production"
     assert payload["target"] == "medv"
     assert payload["features_used"] == list(valid_payload())
+
+
+def test_metrics_endpoint() -> None:
+    test_client = client()
+    test_client.post("/predict", json=valid_payload())
+    response = test_client.get("/metrics")
+
+    assert response.status_code == 200
+    body = response.text
+    assert "prediction_requests_total" in body
+    assert "prediction_latency_seconds" in body
+    assert "model_loaded" in body
